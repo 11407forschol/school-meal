@@ -17,18 +17,13 @@
     <div class="container">
         <h1>🛠️ 부산기계공고 급식표</h1>
         <div class="date" id="date-display">날짜 확인 중...</div>
-        
-        <div class="menu-box" id="menu-display">
-            급식 정보를 불러오는 중입니다 ⏳
-        </div>
+        <div class="menu-box" id="menu-display">급식 정보를 불러오는 중입니다 ⏳</div>
     </div>
 
     <script>
-        // 1. 부산기계공업고등학교 정보 설정
         const officeCode = "C10";
         const schoolCode = "1421117";
 
-        // 2. 오늘 날짜 (YYYYMMDD) 계산
         const today = new Date();
         const year = today.getFullYear();
         const month = String(today.getMonth() + 1).padStart(2, '0');
@@ -37,41 +32,27 @@
 
         document.getElementById('date-display').innerText = `${year}년 ${today.getMonth() + 1}월 ${today.getDate()}일`;
 
-        // 3. Neocities CSP 보안 차단을 우회하기 위한 데이터 처리 콜백 함수
-        window.handleMealData = function(response) {
-            const menuBox = document.getElementById('menu-display');
-            
-            try {
-                // 우회 서버에서 받아온 데이터 파싱
-                const data = JSON.parse(response.contents);
+        const neisUrl = `https://open.neis.go.kr/hub/mealServiceDietInfo?Type=json&ATPT_OFCDC_SC_CODE=${officeCode}&SD_SCHUL_CODE=${schoolCode}&MLSV_YMD=${dateStr}`;
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(neisUrl)}`;
 
+        fetch(proxyUrl)
+            .then(res => res.json())
+            .then(data => {
+                const menuBox = document.getElementById('menu-display');
                 if (data.mealServiceDietInfo) {
                     let menu = data.mealServiceDietInfo[1].row[0].DDISH_NM;
-                    // 알레르기 숫자 및 특수기호 제거
-                    menu = menu.replace(/[0-9.]/g, ''); 
+                    menu = menu.replace(/[0-9.]/g, '');
                     menuBox.innerHTML = menu;
                 } else if (data.RESULT) {
                     menuBox.innerHTML = `오늘은 급식이 없습니다 😴<br><span class="sub-info">(${data.RESULT.MESSAGE})</span>`;
                 } else {
                     menuBox.innerHTML = "급식 정보를 찾을 수 없습니다.";
                 }
-            } catch (err) {
-                console.error("데이터 해석 에러:", err);
-                menuBox.innerHTML = "급식 데이터를 불러오는 데 실패했습니다.";
-            }
-        };
-
-        // 4. NEIS API 주소 생성 및 JSONP 우회 스크립트 동적 호출
-        const neisUrl = `https://open.neis.go.kr/hub/mealServiceDietInfo?Type=json&ATPT_OFCDC_SC_CODE=${officeCode}&SD_SCHUL_CODE=${schoolCode}&MLSV_YMD=${dateStr}`;
-        const jsonpUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(neisUrl)}&callback=handleMealData`;
-
-        // fetch 대신 외부 script 태그를 불러와 Neocities의 connect-src 차단을 피합니다.
-        const script = document.createElement('script');
-        script.src = jsonpUrl;
-        script.onerror = function() {
-            document.getElementById('menu-display').innerHTML = "서버 연결에 실패했습니다.";
-        };
-        document.body.appendChild(script);
+            })
+            .catch(err => {
+                console.error(err);
+                document.getElementById('menu-display').innerHTML = "급식 데이터를 불러오는 데 실패했습니다.";
+            });
     </script>
 </body>
 </html>
