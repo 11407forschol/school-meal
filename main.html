@@ -102,7 +102,7 @@
         const searchResults = document.getElementById('search-results');
         const today = new Date();
 
-        let mealRangeCache = []; // 최근 60일간의 급식 데이터 저장용
+        let mealRangeCache = []; // 오늘부터 30일 후까지 급식 데이터 저장용
 
         function formatDateISO(dateObj) {
             const y = dateObj.getFullYear();
@@ -115,17 +115,16 @@
             return formatDateISO(dateObj).replace(/-/g, '');
         }
 
-        // 선택 가능 범위: -30일 ~ +30일
-        const minDate = new Date();
-        minDate.setDate(today.getDate() - 30);
-        const maxDate = new Date();
+        // 선택 가능 범위: 오늘 ~ +30일 후
+        const minDate = new Date(today);
+        const maxDate = new Date(today);
         maxDate.setDate(today.getDate() + 30);
 
         datePicker.value = formatDateISO(today);
         datePicker.min = formatDateISO(minDate);
         datePicker.max = formatDateISO(maxDate);
 
-        // 1. 전체 기간 급식 데이터 한 번에 불러오기 (검색 기능용)
+        // 1. 오늘부터 30일 후까지의 급식 데이터 불러오기 (검색 기능용)
         function loadRangeMealData() {
             const fromYMD = formatDateStr(minDate);
             const toYMD = formatDateStr(maxDate);
@@ -209,10 +208,8 @@
 
             const matches = [];
             mealRangeCache.forEach(item => {
-                // <br/>로 나뉘어 있는 메뉴 각각 분리
                 const dishes = item.DDISH_NM.split(/<br\s*\/?>/i);
                 dishes.forEach(dish => {
-                    // 알레르기 번호 제거 후 이름만 추출해서 검색
                     const cleanName = dish.replace(/\s*\([0-9.]+\)/g, '').trim();
                     if (cleanName.includes(keyword)) {
                         const ymd = item.MLSV_YMD;
@@ -229,7 +226,6 @@
             if (matches.length === 0) {
                 searchResults.innerHTML = `<div class="search-item" style="color:#94a3b8;">일치하는 메뉴가 없습니다.</div>`;
             } else {
-                // 최대 15개까지만 추천 리스트에 표시
                 searchResults.innerHTML = matches.slice(0, 15).map(m => `
                     <div class="search-item" data-date="${m.dateISO}">
                         <span><strong>${m.name}</strong></span>
@@ -240,7 +236,7 @@
             searchResults.style.display = 'block';
         });
 
-        // 검색 드롭다운에서 메뉴 클릭 시 선택한 날짜 급식표로 이동
+        // 검색 드롭다운 선택 시 해당 날짜로 이동
         searchResults.addEventListener('click', (e) => {
             const item = e.target.closest('.search-item');
             if (item && item.dataset.date) {
@@ -252,18 +248,18 @@
             }
         });
 
-        // 검색창 바깥 영역 클릭 시 드롭다운 닫기
+        // 외부 영역 클릭 시 검색창 닫기
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.search-box')) {
                 searchResults.style.display = 'none';
             }
         });
 
-        // 초기 실행
+        // 초기 실행 (오늘 기준)
         loadRangeMealData();
         fetchMealData(datePicker.value);
 
-        // 달력 날짜 변경 시 갱신
+        // 달력 날짜 선택 시 갱신
         datePicker.addEventListener('change', (e) => {
             fetchMealData(e.target.value);
         });
