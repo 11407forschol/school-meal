@@ -32,16 +32,16 @@
 
         document.getElementById('date-display').innerText = `${year}년 ${today.getMonth() + 1}월 ${today.getDate()}일`;
 
-        const neisUrl = `https://open.neis.go.kr/hub/mealServiceDietInfo?Type=json&ATPT_OFCDC_SC_CODE=${officeCode}&SD_SCHUL_CODE=${schoolCode}&MLSV_YMD=${dateStr}`;
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(neisUrl)}`;
+        // 나이스 API 직접 호출 (우회 서버 미사용)
+        const apiUrl = `https://open.neis.go.kr/hub/mealServiceDietInfo?Type=json&ATPT_OFCDC_SC_CODE=${officeCode}&SD_SCHUL_CODE=${schoolCode}&MLSV_YMD=${dateStr}`;
 
-        fetch(proxyUrl)
+        fetch(apiUrl)
             .then(res => res.json())
             .then(data => {
                 const menuBox = document.getElementById('menu-display');
                 if (data.mealServiceDietInfo) {
                     let menu = data.mealServiceDietInfo[1].row[0].DDISH_NM;
-                    menu = menu.replace(/[0-9.]/g, '');
+                    menu = menu.replace(/[0-9.]/g, ''); // 알레르기 숫자 제거
                     menuBox.innerHTML = menu;
                 } else if (data.RESULT) {
                     menuBox.innerHTML = `오늘은 급식이 없습니다 😴<br><span class="sub-info">(${data.RESULT.MESSAGE})</span>`;
