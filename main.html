@@ -5,19 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>부산기계공업고등학교 급식표</title>
     <style>
-        body { font-family: 'Pretendard', sans-serif; background-color: #f4f7f6; text-align: center; padding: 50px 20px; }
-        .container { max-width: 500px; margin: 0 auto; background: white; padding: 40px 30px; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+        body { font-family: 'Pretendard', sans-serif; background-color: #f4f7f6; text-align: center; padding: 30px 15px; margin: 0; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 30px 20px; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
         h1 { color: #2c3e50; margin-bottom: 5px; font-size: 1.6em; }
         .date { color: #7f8c8d; font-size: 1.1em; margin-bottom: 25px; font-weight: bold; }
-        .menu-box { background-color: #e8f6f3; padding: 25px; border-radius: 15px; font-size: 1.1em; line-height: 1.8; color: #16a085; font-weight: bold; min-height: 150px; }
-        .sub-info { font-size: 0.85em; color: #e74c3c; margin-top: 10px; font-weight: normal; }
+        
+        .meal-grid { display: flex; flex-direction: column; gap: 20px; }
+        .meal-card { background-color: #e8f6f3; padding: 20px; border-radius: 15px; text-align: left; }
+        .meal-title { font-size: 1.2em; font-weight: bold; color: #16a085; margin-bottom: 10px; border-bottom: 2px solid #a3e4d7; padding-bottom: 5px; }
+        .meal-content { font-size: 1em; line-height: 1.8; color: #2c3e50; font-weight: 500; }
+        
+        .allergy-info { margin-top: 30px; padding: 15px; background: #f8f9fa; border-radius: 10px; font-size: 0.78em; color: #7f8c8d; text-align: left; line-height: 1.6; }
+        .allergy-title { font-weight: bold; margin-bottom: 5px; color: #34495e; }
+        .sub-info { font-size: 0.9em; color: #95a5a6; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🛠️ 부산기계공고 급식표</h1>
         <div class="date" id="date-display">날짜 확인 중...</div>
-        <div class="menu-box" id="menu-display">급식 정보를 불러오는 중입니다 ⏳</div>
+        
+        <div class="meal-grid" id="meal-container">
+            <div style="text-align:center;">급식 정보를 불러오는 중입니다 ⏳</div>
+        </div>
+
+        <div class="allergy-info">
+            <div class="allergy-title">💡 알레르기 유발물질 안내 (메뉴 옆 숫자)</div>
+            1.난류 2.우유 3.메밀 4.땅콩 5.대두 6.밀 7.고등어 8.게 9.새우 10.돼지고기 11.복숭아 12.토마토 13.아황산류 14.호두 15.닭고기 16.쇠고기 17.오징어 18.조개류 19.잣
+        </div>
     </div>
 
     <script>
@@ -37,20 +52,44 @@
         fetch(apiUrl)
             .then(res => res.json())
             .then(data => {
-                const menuBox = document.getElementById('menu-display');
+                const container = document.getElementById('meal-container');
+                container.innerHTML = ""; 
+
                 if (data.mealServiceDietInfo) {
-                    let menu = data.mealServiceDietInfo[1].row[0].DDISH_NM;
-                    menu = menu.replace(/[0-9.]/g, '');
-                    menuBox.innerHTML = menu;
+                    const rows = data.mealServiceDietInfo[1].row;
+                    const meals = { "조식": "", "중식": "", "석식": "" };
+
+                    // 조식, 중식, 석식 데이터 매핑 (알레르기 숫자 유지)
+                    rows.forEach(item => {
+                        meals[item.MMEAL_SC_NM] = item.DDISH_NM;
+                    });
+
+                    // 조식, 중식, 석식 순서대로 카드 생성
+                    ["조식", "중식", "석식"].forEach(mealName => {
+                        const card = document.createElement('div');
+                        card.className = 'meal-card';
+                        
+                        let content = meals[mealName];
+                        if (!content) {
+                            content = `<span class="sub-info">급식 정보가 없습니다.</span>`;
+                        }
+
+                        card.innerHTML = `
+                            <div class="meal-title">🍴 ${mealName}</div>
+                            <div class="meal-content">${content}</div>
+                        `;
+                        container.appendChild(card);
+                    });
+
                 } else if (data.RESULT) {
-                    menuBox.innerHTML = `오늘은 급식이 없습니다 😴<br><span class="sub-info">(${data.RESULT.MESSAGE})</span>`;
+                    container.innerHTML = `<div class="meal-card" style="text-align:center;">오늘은 급식이 없습니다 😴<br><span class="sub-info">(${data.RESULT.MESSAGE})</span></div>`;
                 } else {
-                    menuBox.innerHTML = "급식 정보를 찾을 수 없습니다.";
+                    container.innerHTML = `<div class="meal-card" style="text-align:center;">급식 정보를 찾을 수 없습니다.</div>`;
                 }
             })
             .catch(err => {
                 console.error(err);
-                document.getElementById('menu-display').innerHTML = "급식 데이터를 불러오는 데 실패했습니다.";
+                document.getElementById('meal-container').innerHTML = `<div class="meal-card" style="text-align:center;">급식 데이터를 불러오는 데 실패했습니다.</div>`;
             });
     </script>
 </body>
