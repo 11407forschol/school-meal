@@ -17,7 +17,7 @@
         
         .allergy-info { margin-top: 30px; padding: 15px; background: #f8f9fa; border-radius: 10px; font-size: 0.78em; color: #7f8c8d; text-align: left; line-height: 1.6; }
         .allergy-title { font-weight: bold; margin-bottom: 5px; color: #34495e; }
-        .sub-info { font-size: 0.9em; color: #95a5a6; }
+        .sub-info { font-size: 0.9em; color: #95a5a6; font-style: italic; }
     </style>
 </head>
 <body>
@@ -52,6 +52,7 @@
         fetch(apiUrl)
             .then(res => res.json())
             .then(data => {
+                console.log("나이스 API 가져온 데이터:", data); // F12 콘솔에서 데이터 직접 확인 가능
                 const container = document.getElementById('meal-container');
                 container.innerHTML = ""; 
 
@@ -59,19 +60,26 @@
                     const rows = data.mealServiceDietInfo[1].row;
                     const meals = { "조식": "", "중식": "", "석식": "" };
 
-                    // 조식, 중식, 석식 데이터 매핑 (알레르기 숫자 유지)
+                    // 식단 구분 코드(1: 조식, 2: 중식, 3: 석식) 및 이름 기준 매핑
                     rows.forEach(item => {
-                        meals[item.MMEAL_SC_NM] = item.DDISH_NM;
+                        let mealType = item.MMEAL_SC_NM;
+                        if (item.MMEAL_SC_CODE === "1") mealType = "조식";
+                        if (item.MMEAL_SC_CODE === "2") mealType = "중식";
+                        if (item.MMEAL_SC_CODE === "3") mealType = "석식";
+
+                        if (mealType && meals.hasOwnProperty(mealType)) {
+                            meals[mealType] = item.DDISH_NM; // 원본 알레르기 숫자 포함 메뉴
+                        }
                     });
 
-                    // 조식, 중식, 석식 순서대로 카드 생성
+                    // 조식, 중식, 석식 순서대로 화면 생성
                     ["조식", "중식", "석식"].forEach(mealName => {
                         const card = document.createElement('div');
                         card.className = 'meal-card';
                         
                         let content = meals[mealName];
                         if (!content) {
-                            content = `<span class="sub-info">급식 정보가 없습니다.</span>`;
+                            content = `<span class="sub-info">등록된 ${mealName} 식단이 없습니다.</span>`;
                         }
 
                         card.innerHTML = `
