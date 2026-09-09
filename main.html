@@ -8,8 +8,23 @@
         * { box-sizing: border-box; }
         body { font-family: 'Pretendard', sans-serif; background-color: #f4f7f6; text-align: center; padding: 30px 15px; margin: 0; }
         .container { max-width: 500px; margin: 0 auto; background: white; padding: 30px 20px; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
-        h1 { color: #2c3e50; margin-bottom: 5px; font-size: 1.5em; }
-        .date { color: #7f8c8d; font-size: 1em; margin-bottom: 25px; font-weight: bold; }
+        h1 { color: #2c3e50; margin-bottom: 15px; font-size: 1.5em; }
+        
+        .date-picker-box { margin-bottom: 20px; }
+        .date-picker-box input {
+            font-family: inherit;
+            font-size: 1em;
+            padding: 10px 15px;
+            border: 2px solid #0f766e;
+            border-radius: 10px;
+            outline: none;
+            color: #2c3e50;
+            background-color: #ffffff;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .date { color: #7f8c8d; font-size: 1.1em; margin-bottom: 20px; font-weight: bold; }
         
         .meal-grid { display: flex; flex-direction: column; gap: 20px; }
         .meal-card { background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 15px; text-align: left; }
@@ -24,6 +39,11 @@
 <body>
     <div class="container">
         <h1>🛠️ 부산기계공고 급식표</h1>
+        
+        <div class="date-picker-box">
+            <input type="date" id="date-picker">
+        </div>
+
         <div class="date" id="date-display">날짜 불러오는 중...</div>
         
         <div class="meal-grid" id="meal-container">
@@ -40,66 +60,93 @@
         const officeCode = "C10";
         const schoolCode = "1421117";
 
+        const datePicker = document.getElementById('date-picker');
         const today = new Date();
-        const year = today.getFullYear();
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const day = String(today.getDate()).padStart(2, '0');
-        const dateStr = `${year}${month}${day}`;
 
-        document.getElementById('date-display').innerText = `${year}년 ${today.getMonth() + 1}월 ${today.getDate()}일`;
+        // 날짜를 YYYY-MM-DD 형식으로 변환하는 함수
+        function formatDate(dateObj) {
+            const y = dateObj.getFullYear();
+            const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const d = String(dateObj.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
 
-        const apiUrl = `https://open.neis.go.kr/hub/mealServiceDietInfo?Type=json&ATPT_OFCDC_SC_CODE=${officeCode}&SD_SCHUL_CODE=${schoolCode}&MLSV_YMD=${dateStr}`;
+        // 선택 가능 날짜 범위를 최근 30일전 ~ 향후 30일까지로 설정
+        const minDate = new Date();
+        minDate.setDate(today.getDate() - 30);
+        const maxDate = new Date();
+        maxDate.setDate(today.getDate() + 30);
 
-        fetch(apiUrl)
-            .then(res => res.json())
-            .then(data => {
-                const container = document.getElementById('meal-container');
-                container.innerHTML = ""; 
+        datePicker.value = formatDate(today);
+        datePicker.min = formatDate(minDate);
+        datePicker.max = formatDate(maxDate);
 
-                if (data.mealServiceDietInfo) {
-                    const rows = data.mealServiceDietInfo[1].row;
-                    
-                    // 조식, 중식, 석식 구분 객체
-                    const mealData = { "조식": "", "중식": "", "석식": "" };
+        // 선택한 날짜의 급식을 불러오는 주요 함수
+        function fetchMealData(selectedDateISO) {
+            const [year, month, day] = selectedDateISO.split('-');
+            const dateStr = `${year}${month}${day}`;
 
-                    // API에서 불러온 데이터 매핑 (숫자 삭제 없이 원본 유지)
-                    rows.forEach(item => {
-                        const type = item.MMEAL_SC_NM;
-                        if (mealData.hasOwnProperty(type)) {
-                            mealData[type] = item.DDISH_NM;
-                        }
-                    });
+            document.getElementById('date-display').innerText = `${year}년 ${parseInt(month)}월 ${parseInt(day)}일`;
 
-                    // 조식 -> 중식 -> 석식 순서로 카드 각각 생성
-                    ["조식", "중식", "석식"].forEach(type => {
-                        const card = document.createElement('div');
-                        card.className = 'meal-card';
-                        
-                        const content = mealData[type];
-                        if (content) {
-                            card.innerHTML = `
-                                <div class="meal-title">🍴 ${type}</div>
-                                <div class="meal-content">${content}</div>
-                            `;
-                        } else {
-                            card.innerHTML = `
-                                <div class="meal-title">🍴 ${type}</div>
-                                <div class="meal-content no-meal">식단 정보가 없습니다.</div>
-                            `;
-                        }
-                        container.appendChild(card);
-                    });
+            const apiUrl = `https://open.neis.go.kr/hub/mealServiceDietInfo?Type=json&ATPT_OFCDC_SC_CODE=${officeCode}&SD_SCHUL_CODE=${schoolCode}&MLSV_YMD=${dateStr}`;
 
-                } else if (data.RESULT) {
-                    container.innerHTML = `<div class="meal-card" style="text-align:center;">오늘은 급식이 없습니다 😴<br><span class="no-meal">(${data.RESULT.MESSAGE})</span></div>`;
-                } else {
-                    container.innerHTML = `<div class="meal-card" style="text-align:center;">급식 정보를 찾을 수 없습니다.</div>`;
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                document.getElementById('meal-container').innerHTML = `<div class="meal-card" style="text-align:center;">급식 데이터를 불러오는 데 실패했습니다.</div>`;
-            });
+            const container = document.getElementById('meal-container');
+            container.innerHTML = `<div style="text-align:center; color:#64748b;">급식 정보를 불러오는 중입니다 ⏳</div>`;
+
+            fetch(apiUrl)
+                .then(res => res.json())
+                .then(data => {
+                    container.innerHTML = ""; 
+
+                    if (data.mealServiceDietInfo) {
+                        const rows = data.mealServiceDietInfo[1].row;
+                        const mealData = { "조식": "", "중식": "", "석식": "" };
+
+                        rows.forEach(item => {
+                            const type = item.MMEAL_SC_NM;
+                            if (mealData.hasOwnProperty(type)) {
+                                mealData[type] = item.DDISH_NM;
+                            }
+                        });
+
+                        ["조식", "중식", "석식"].forEach(type => {
+                            const card = document.createElement('div');
+                            card.className = 'meal-card';
+                            
+                            const content = mealData[type];
+                            if (content) {
+                                card.innerHTML = `
+                                    <div class="meal-title">🍴 ${type}</div>
+                                    <div class="meal-content">${content}</div>
+                                `;
+                            } else {
+                                card.innerHTML = `
+                                    <div class="meal-title">🍴 ${type}</div>
+                                    <div class="meal-content no-meal">식단 정보가 없습니다.</div>
+                                `;
+                            }
+                            container.appendChild(card);
+                        });
+
+                    } else if (data.RESULT) {
+                        container.innerHTML = `<div class="meal-card" style="text-align:center;">오늘은 급식이 없습니다 😴<br><span class="no-meal">(${data.RESULT.MESSAGE})</span></div>`;
+                    } else {
+                        container.innerHTML = `<div class="meal-card" style="text-align:center;">급식 정보를 찾을 수 없습니다.</div>`;
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    container.innerHTML = `<div class="meal-card" style="text-align:center;">급식 데이터를 불러오는 데 실패했습니다.</div>`;
+                });
+        }
+
+        // 초기 실행 (오늘 날짜)
+        fetchMealData(datePicker.value);
+
+        // 날짜를 선택해 변경할 때마다 급식표 갱신
+        datePicker.addEventListener('change', (e) => {
+            fetchMealData(e.target.value);
+        });
     </script>
 </body>
 </html>
