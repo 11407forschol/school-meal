@@ -10,6 +10,35 @@
         .container { max-width: 500px; margin: 0 auto; background: white; padding: 30px 20px; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
         h1 { color: #2c3e50; margin-bottom: 15px; font-size: 1.5em; }
         
+        /* 검색창 스타일 */
+        .search-box { position: relative; margin-bottom: 15px; }
+        .search-box input {
+            width: 100%;
+            padding: 12px 15px;
+            font-size: 0.95em;
+            border: 2px solid #cbd5e1;
+            border-radius: 12px;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .search-box input:focus { border-color: #0f766e; box-shadow: 0 0 0 3px #ccfbf1; }
+        
+        /* 검색 자동완성 드롭다운 */
+        .search-results {
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: white; border: 1px solid #cbd5e1;
+            border-radius: 12px; max-height: 220px; overflow-y: auto;
+            z-index: 100; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+            display: none; text-align: left; margin-top: 5px;
+        }
+        .search-item {
+            padding: 10px 15px; cursor: pointer; border-bottom: 1px solid #f1f5f9;
+            font-size: 0.92em; display: flex; justify-content: space-between; align-items: center;
+        }
+        .search-item:hover { background-color: #f0fdf4; color: #0f766e; }
+        .search-item-date { font-size: 0.8em; color: #64748b; font-weight: bold; }
+
+        /* 날짜 선택 박스 */
         .date-picker-box { margin-bottom: 20px; }
         .date-picker-box input {
             font-family: inherit;
@@ -26,6 +55,7 @@
 
         .date { color: #7f8c8d; font-size: 1.1em; margin-bottom: 20px; font-weight: bold; }
         
+        /* 급식 카드 */
         .meal-grid { display: flex; flex-direction: column; gap: 20px; }
         .meal-card { background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 15px; text-align: left; }
         .meal-title { font-size: 1.15em; font-weight: bold; color: #0f766e; margin-bottom: 12px; border-bottom: 2px solid #ccfbf1; padding-bottom: 6px; }
@@ -40,6 +70,13 @@
     <div class="container">
         <h1>🛠️ 부산기계공고 급식표</h1>
         
+        <!-- 메뉴 검색 영역 -->
+        <div class="search-box">
+            <input type="text" id="search-input" placeholder="🔍 메뉴 검색 (예: 우유, 비엔나, 닭)" autocomplete="off">
+            <div id="search-results" class="search-results"></div>
+        </div>
+
+        <!-- 날짜 선택 달력 -->
         <div class="date-picker-box">
             <input type="date" id="date-picker">
         </div>
@@ -61,27 +98,50 @@
         const schoolCode = "1421117";
 
         const datePicker = document.getElementById('date-picker');
+        const searchInput = document.getElementById('search-input');
+        const searchResults = document.getElementById('search-results');
         const today = new Date();
 
-        // 날짜를 YYYY-MM-DD 형식으로 변환하는 함수
-        function formatDate(dateObj) {
+        let mealRangeCache = []; // 최근 60일간의 급식 데이터 저장용
+
+        function formatDateISO(dateObj) {
             const y = dateObj.getFullYear();
             const m = String(dateObj.getMonth() + 1).padStart(2, '0');
             const d = String(dateObj.getDate()).padStart(2, '0');
             return `${y}-${m}-${d}`;
         }
 
-        // 선택 가능 날짜 범위를 최근 30일전 ~ 향후 30일까지로 설정
+        function formatDateStr(dateObj) {
+            return formatDateISO(dateObj).replace(/-/g, '');
+        }
+
+        // 선택 가능 범위: -30일 ~ +30일
         const minDate = new Date();
         minDate.setDate(today.getDate() - 30);
         const maxDate = new Date();
         maxDate.setDate(today.getDate() + 30);
 
-        datePicker.value = formatDate(today);
-        datePicker.min = formatDate(minDate);
-        datePicker.max = formatDate(maxDate);
+        datePicker.value = formatDateISO(today);
+        datePicker.min = formatDateISO(minDate);
+        datePicker.max = formatDateISO(maxDate);
 
-        // 선택한 날짜의 급식을 불러오는 주요 함수
+        // 1. 전체 기간 급식 데이터 한 번에 불러오기 (검색 기능용)
+        function loadRangeMealData() {
+            const fromYMD = formatDateStr(minDate);
+            const toYMD = formatDateStr(maxDate);
+            const rangeUrl = `https://open.neis.go.kr/hub/mealServiceDietInfo?Type=json&pSize=1000&ATPT_OFCDC_SC_CODE=${officeCode}&SD_SCHUL_CODE=${schoolCode}&MLSV_FROM_YMD=${fromYMD}&MLSV_TO_YMD=${toYMD}`;
+
+            fetch(rangeUrl)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.mealServiceDietInfo) {
+                        mealRangeCache = data.mealServiceDietInfo[1].row;
+                    }
+                })
+                .catch(err => console.error("검색용 데이터 로딩 실패:", err));
+        }
+
+        // 2. 특정 날짜의 급식표 화면 표시
         function fetchMealData(selectedDateISO) {
             const [year, month, day] = selectedDateISO.split('-');
             const dateStr = `${year}${month}${day}`;
@@ -89,7 +149,6 @@
             document.getElementById('date-display').innerText = `${year}년 ${parseInt(month)}월 ${parseInt(day)}일`;
 
             const apiUrl = `https://open.neis.go.kr/hub/mealServiceDietInfo?Type=json&ATPT_OFCDC_SC_CODE=${officeCode}&SD_SCHUL_CODE=${schoolCode}&MLSV_YMD=${dateStr}`;
-
             const container = document.getElementById('meal-container');
             container.innerHTML = `<div style="text-align:center; color:#64748b;">급식 정보를 불러오는 중입니다 ⏳</div>`;
 
@@ -140,10 +199,71 @@
                 });
         }
 
-        // 초기 실행 (오늘 날짜)
+        // 3. 실시간 메뉴 검색 및 자동완성 처리
+        searchInput.addEventListener('input', (e) => {
+            const keyword = e.target.value.trim();
+            if (!keyword) {
+                searchResults.style.display = 'none';
+                return;
+            }
+
+            const matches = [];
+            mealRangeCache.forEach(item => {
+                // <br/>로 나뉘어 있는 메뉴 각각 분리
+                const dishes = item.DDISH_NM.split(/<br\s*\/?>/i);
+                dishes.forEach(dish => {
+                    // 알레르기 번호 제거 후 이름만 추출해서 검색
+                    const cleanName = dish.replace(/\s*\([0-9.]+\)/g, '').trim();
+                    if (cleanName.includes(keyword)) {
+                        const ymd = item.MLSV_YMD;
+                        const iso = `${ymd.substr(0,4)}-${ymd.substr(4,2)}-${ymd.substr(6,2)}`;
+                        matches.push({
+                            name: cleanName,
+                            dateISO: iso,
+                            mealType: item.MMEAL_SC_NM
+                        });
+                    }
+                });
+            });
+
+            if (matches.length === 0) {
+                searchResults.innerHTML = `<div class="search-item" style="color:#94a3b8;">일치하는 메뉴가 없습니다.</div>`;
+            } else {
+                // 최대 15개까지만 추천 리스트에 표시
+                searchResults.innerHTML = matches.slice(0, 15).map(m => `
+                    <div class="search-item" data-date="${m.dateISO}">
+                        <span><strong>${m.name}</strong></span>
+                        <span class="search-item-date">${m.dateISO.substr(5)} (${m.mealType})</span>
+                    </div>
+                `).join('');
+            }
+            searchResults.style.display = 'block';
+        });
+
+        // 검색 드롭다운에서 메뉴 클릭 시 선택한 날짜 급식표로 이동
+        searchResults.addEventListener('click', (e) => {
+            const item = e.target.closest('.search-item');
+            if (item && item.dataset.date) {
+                const selectedDate = item.dataset.date;
+                datePicker.value = selectedDate;
+                fetchMealData(selectedDate);
+                searchResults.style.display = 'none';
+                searchInput.value = '';
+            }
+        });
+
+        // 검색창 바깥 영역 클릭 시 드롭다운 닫기
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-box')) {
+                searchResults.style.display = 'none';
+            }
+        });
+
+        // 초기 실행
+        loadRangeMealData();
         fetchMealData(datePicker.value);
 
-        // 날짜를 선택해 변경할 때마다 급식표 갱신
+        // 달력 날짜 변경 시 갱신
         datePicker.addEventListener('change', (e) => {
             fetchMealData(e.target.value);
         });
