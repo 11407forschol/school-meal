@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>부산기계공업고등학교 급식표</title>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; background-color: #f4f7f6; text-align: center; padding: 50px 20px; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 40px 30px; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+        h1 { color: #2c3e50; margin-bottom: 5px; font-size: 1.6em; }
+        .date { color: #7f8c8d; font-size: 1.1em; margin-bottom: 25px; font-weight: bold; }
+        .menu-box { background-color: #e8f6f3; padding: 25px; border-radius: 15px; font-size: 1.1em; line-height: 1.8; color: #16a085; font-weight: bold; min-height: 150px; }
+        .sub-info { font-size: 0.85em; color: #e74c3c; margin-top: 10px; font-weight: normal; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛠️ 부산기계공고 급식표</h1>
+        <div class="date" id="date-display">날짜 확인 중...</div>
+        
+        <div class="menu-box" id="menu-display">
+            급식 정보를 불러오는 중입니다 ⏳
+        </div>
+    </div>
+
+    <script>
+        // 1. 부산기계공업고등학교 정보 설정
+        const officeCode = "C10";
+        const schoolCode = "1421117";
+
+        // 2. 오늘 날짜 (YYYYMMDD) 계산
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const dateStr = `${year}${month}${day}`;
+
+        document.getElementById('date-display').innerText = `${year}년 ${today.getMonth() + 1}월 ${today.getDate()}일`;
+
+        // 3. Neocities CSP 보안 차단을 우회하기 위한 데이터 처리 콜백 함수
+        window.handleMealData = function(response) {
+            const menuBox = document.getElementById('menu-display');
+            
+            try {
+                // 우회 서버에서 받아온 데이터 파싱
+                const data = JSON.parse(response.contents);
+
+                if (data.mealServiceDietInfo) {
+                    let menu = data.mealServiceDietInfo[1].row[0].DDISH_NM;
+                    // 알레르기 숫자 및 특수기호 제거
+                    menu = menu.replace(/[0-9.]/g, ''); 
+                    menuBox.innerHTML = menu;
+                } else if (data.RESULT) {
+                    menuBox.innerHTML = `오늘은 급식이 없습니다 😴<br><span class="sub-info">(${data.RESULT.MESSAGE})</span>`;
+                } else {
+                    menuBox.innerHTML = "급식 정보를 찾을 수 없습니다.";
+                }
+            } catch (err) {
+                console.error("데이터 해석 에러:", err);
+                menuBox.innerHTML = "급식 데이터를 불러오는 데 실패했습니다.";
+            }
+        };
+
+        // 4. NEIS API 주소 생성 및 JSONP 우회 스크립트 동적 호출
+        const neisUrl = `https://open.neis.go.kr/hub/mealServiceDietInfo?Type=json&ATPT_OFCDC_SC_CODE=${officeCode}&SD_SCHUL_CODE=${schoolCode}&MLSV_YMD=${dateStr}`;
+        const jsonpUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(neisUrl)}&callback=handleMealData`;
+
+        // fetch 대신 외부 script 태그를 불러와 Neocities의 connect-src 차단을 피합니다.
+        const script = document.createElement('script');
+        script.src = jsonpUrl;
+        script.onerror = function() {
+            document.getElementById('menu-display').innerHTML = "서버 연결에 실패했습니다.";
+        };
+        document.body.appendChild(script);
+    </script>
+</body>
+</html>
